@@ -45,8 +45,8 @@ public class MacroscopePSF extends EzPlug {
 		_objNA = new EzVarDouble("Effective numerical aperture of the objective lens");
 		_zoomNA = new EzVarDouble("Effective numerical aperture of the zoom system");
 		_lem = new EzVarInteger("Emission peak wavelength, in nm");
-		_xofactor = new EzVarInteger("Relative x displacement");
-		_yofactor = new EzVarInteger("Relative y displacement");
+		_xofactor = new EzVarInteger("Relative x displacement (in pixels)", 0, 7, 1);
+		_yofactor = new EzVarInteger("Relative y displacement (in pixels)", 0, 7, 1);
 		        
 		// Set the default values
         _w.setValue(MacroCalculator.DEFAULT_W);
