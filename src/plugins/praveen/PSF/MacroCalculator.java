@@ -122,7 +122,7 @@ public class MacroCalculator {
 					}
 					for(int y = hc+1; y < _h; y++)
 					{
-						timg.setDataAsDouble(x, y, 0, Math.pow(psf2d[(((wc-x) + (_h+hc-y) * _h)*2)+0], 2)+Math.pow(psf2d[(((wc-x) + (_h+hc-y) * _h)*2)+1], 2));
+						timg.setDataAsDouble(x, y, 0, Math.pow(psf2d[(((wc-x) + (y-hc) * _h)*2)+0], 2)+Math.pow(psf2d[(((wc-x) + (y-hc) * _h)*2)+1], 2));
 						//timg.setDataAsDouble(x, y, 1, psf2d[(((wc-x) + (_h+hc-y) * _h)*2)+1]);
 					}
 					
@@ -131,12 +131,12 @@ public class MacroCalculator {
 				{
 					for(int y = 0; y < (hc+1); y++)
 					{
-						timg.setDataAsDouble(x, y, 0, Math.pow(psf2d[(((_w+wc-x) + (hc-y) * _h)*2)+0], 2)+Math.pow(psf2d[(((_w+wc-x) + (hc-y) * _h)*2)+1], 2));
+						timg.setDataAsDouble(x, y, 0, Math.pow(psf2d[(((x-wc) + (hc-y) * _h)*2)+0], 2)+Math.pow(psf2d[(((x-wc) + (hc-y) * _h)*2)+1], 2));
 						//timg.setDataAsDouble(x, y, 1, psf2d[(((_w+wc-x) + (hc-y) * _h)*2)+1]);
 					}
 					for(int y = hc+1; y < _h; y++)
 					{
-						timg.setDataAsDouble(x, y, 0, Math.pow(psf2d[(((_w+wc-x) + (_h+hc-y) * _h)*2)+0], 2)+Math.pow(psf2d[(((_w+wc-x) + (_h+hc-y) * _h)*2)+1],2));
+						timg.setDataAsDouble(x, y, 0, Math.pow(psf2d[(((x-wc) + (y-hc) * _h)*2)+0], 2)+Math.pow(psf2d[(((x-wc) + (y-hc) * _h)*2)+1],2));
 						//timg.setDataAsDouble(x, y, 1, psf2d[(((_w+wc-x) + (_h+hc-y) * _h)*2)+1]);
 					}
 				}
