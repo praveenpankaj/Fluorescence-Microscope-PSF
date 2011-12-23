@@ -38,7 +38,7 @@ public class MacroscopePSF extends EzPlug {
 	protected void initialize() {
 		_w = new EzVarInteger("Image width in pixels");				
 		_h = new EzVarInteger("Image height in pixels");
-		_z = new EzVarInteger("Number of slices in volume");
+		_z = new EzVarInteger("Number of slices in the volume");
 		_xySampling = new EzVarDouble("Image pixel spacing, in nm");
 		_zSampling = new EzVarDouble("Slice spacing (z), in nm");
 		_indexImmersion = new EzVarDouble("Refractive index of the medium between lens and cover slip (default air)");
