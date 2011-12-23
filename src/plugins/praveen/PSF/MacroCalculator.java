@@ -27,8 +27,8 @@ public class MacroCalculator {
 	public final static int DEFAULT_W = 128;
 	public final static int DEFAULT_H = 128;
 	public final static int DEFAULT_Z = 128;
-	public final static double DEFAULT_XYSAMPLING = 50.00;
-	public final static double DEFAULT_ZSAMPLING = 200.00;
+	public final static double DEFAULT_XYSAMPLING = 260.00;
+	public final static double DEFAULT_ZSAMPLING = 1940.00;
 	public final static double DEFAULT_INDEXIMMERSION = 1.00;
 	public final static double DEFAULT_OBJNA = 0.5;
 	public final static double DEFAULT_ZOOMNA = 0.5;
@@ -93,13 +93,14 @@ public class MacroCalculator {
 				for(int y = 0; y < _h; y++)
 				{   
 					double kObjxy = Math.sqrt( Math.pow(x-wc, 2) + Math.pow(y-hc, 2) );
-        		    double kZoomxy = Math.sqrt( Math.pow(x-wc-_xofactor, 2) + Math.pow(y-hc-_yofactor, 2) );
+        		    double kZoomxy = Math.sqrt( Math.pow(x-wc+_xofactor, 2) + Math.pow(y-hc+_yofactor, 2) );
 					pupilRealBuffer[pupil.getOffset(x, y)] = ((kObjxy < kObjMax) ? 1 : 0); //Pupil bandwidth constraints
 					pupilRealBuffer[pupil.getOffset(x, y)] = pupilRealBuffer[pupil.getOffset(x, y)] * ((kZoomxy < kZoomMax) ? 1 : 0); //Pupil bandwidth constraints
 					pupilImagBuffer[pupil.getOffset(x, y)] = 0; //Zero phase 
         		
 					sthetaBuffer[x + y * _h] = Math.sin( kObjxy * kSampling / kObj );
 					sthetaBuffer[x + y * _h] = (sthetaBuffer[x + y * _h]< 0) ? 0: sthetaBuffer[x + y * _h];
+					sthetaBuffer[x + y * _h] = (sthetaBuffer[x + y * _h] > 1) ? 1: sthetaBuffer[x + y * _h];
 					cthetaBuffer[x + y * _h] = Double.MIN_VALUE + Math.sqrt(1 - Math.pow(sthetaBuffer[x + y * _h], 2));
 					dpupilRealBuffer[x + y * _h] = pupilRealBuffer[pupil.getOffset(x, y)] * Math.cos((defocus * k0 * cthetaBuffer[x + y * _h]));
 					dpupilImagBuffer[x + y * _h] = pupilRealBuffer[pupil.getOffset(x, y)] * Math.sin((defocus * k0 * cthetaBuffer[x + y * _h]));
@@ -121,7 +122,7 @@ public class MacroCalculator {
 					}
 					for(int y = hc+1; y < _h; y++)
 					{
-						timg.setDataAsDouble(x, y, 0, Math.pow(psf2d[(((wc-x) + (_h+hc-y) * _h)*2)+0], 2)+Math.pow(psf2d[(((wc-x) + (_h+hc-y) * _h)*2)+1], 2));
+						timg.setDataAsDouble(x, y, 0, Math.pow(psf2d[(((wc-x) + (y-hc) * _h)*2)+0], 2)+Math.pow(psf2d[(((wc-x) + (y-hc) * _h)*2)+1], 2));
 						//timg.setDataAsDouble(x, y, 1, psf2d[(((wc-x) + (_h+hc-y) * _h)*2)+1]);
 					}
 					
@@ -130,12 +131,12 @@ public class MacroCalculator {
 				{
 					for(int y = 0; y < (hc+1); y++)
 					{
-						timg.setDataAsDouble(x, y, 0, Math.pow(psf2d[(((_w+wc-x) + (hc-y) * _h)*2)+0], 2)+Math.pow(psf2d[(((_w+wc-x) + (hc-y) * _h)*2)+1], 2));
+						timg.setDataAsDouble(x, y, 0, Math.pow(psf2d[(((x-wc) + (hc-y) * _h)*2)+0], 2)+Math.pow(psf2d[(((x-wc) + (hc-y) * _h)*2)+1], 2));
 						//timg.setDataAsDouble(x, y, 1, psf2d[(((_w+wc-x) + (hc-y) * _h)*2)+1]);
 					}
 					for(int y = hc+1; y < _h; y++)
 					{
-						timg.setDataAsDouble(x, y, 0, Math.pow(psf2d[(((_w+wc-x) + (_h+hc-y) * _h)*2)+0], 2)+Math.pow(psf2d[(((_w+wc-x) + (_h+hc-y) * _h)*2)+1],2));
+						timg.setDataAsDouble(x, y, 0, Math.pow(psf2d[(((x-wc) + (y-hc) * _h)*2)+0], 2)+Math.pow(psf2d[(((x-wc) + (y-hc) * _h)*2)+1],2));
 						//timg.setDataAsDouble(x, y, 1, psf2d[(((_w+wc-x) + (_h+hc-y) * _h)*2)+1]);
 					}
 				}
