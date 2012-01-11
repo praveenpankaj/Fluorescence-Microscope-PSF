@@ -28,7 +28,9 @@ public class NyquistSampling extends EzPlug {
 		super.addEzComponent(_lex);
 		super.addEzComponent(_lem); 
 		super.addEzComponent(_xySampling);
-		super.addEzComponent(_zSampling);	
+		_xySampling.setEnabled(false);
+		super.addEzComponent(_zSampling);
+		_zSampling.setEnabled(false);
 	}
 
 	@Override
@@ -62,9 +64,11 @@ public class NyquistSampling extends EzPlug {
 				zSampling = _lem.getValue()/(2 * zSampling);	
 
 			}
-
+			
 			_xySampling.setValue(xySampling);
-			_zSampling.setValue(zSampling);			
+			_zSampling.setValue(zSampling);	
+			_xySampling.setEnabled(true);
+			_zSampling.setEnabled(true);
 
 			//MessageDialog.INFORMATION_MESSAGE();
 			//new AnnounceFrame("Radial Nyquist Sampling for the given " + _mname.getValue() + " Microscope is " + xySampling + " nm");

@@ -53,17 +53,25 @@ public class ConfocalCalculator {
 		setH(DEFAULT_H);
 		setZ(DEFAULT_Z);				
 	}
-	public Sequence compute(){
+	public Sequence compute(){			
 		double sFactor = 0;//Pinhole shape factor
 		double mInt = 1;
-		switch (_mName)
+		String choice = _mName;
+		if(_mName == "Biorad MRC 500/600/1024")
 		{
-		case "Biorad MRC 500/600/1024": sFactor = 0.5;
-		mInt = 53.2;
-		break;
-		case "Biorad Radiance": sFactor = 0.5;
-		mInt = 73.2;
-		break;
+			sFactor = 0.5;
+			mInt = 53.2;
+
+		}
+		else if(_mName == "Biorad Radiance")
+		{
+			sFactor = 0.5;
+			mInt = 73.2;
+		}
+		else if(_mName == "Leica TCS 4D/SP1/NT")
+		{
+			sFactor = 0.56419;
+			mInt = 4.5;
 		}
 
 		final DoubleFFT_2D fft = new DoubleFFT_2D(_w, _h);
