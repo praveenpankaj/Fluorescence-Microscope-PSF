@@ -39,7 +39,7 @@ public class ConfocalPSF extends EzPlug {
 
 	@Override
 	protected void initialize() {		
-		_mName = new EzVarText("Choose your microscope", new String[] { "Biorad MRC 500/600/1024", "Biorad Radiance", "Leica TCS 4D/SP1/NT", "Leica SP2", "Leica SP5", "TE2000-E C1 Head", "Ti-E Perfect Focus A1R", "Olympus FV10i", "Olympus FV300/FVX", "Olympus FV500", "Olympus FV1000", "Visitech Infinity", "Zeiss LSM410", "Zeiss LSM510", "Zeiss LSM700", "Zeiss LSM710" }, 0, false);
+		_mName = new EzVarText("Choose your microscope", new String[] { "Biorad MRC 500/600/1024", "Biorad Radiance", "Leica TCS 4D/SP1/NT", "Leica SP2", "Leica SP5", "TE2000-E C1 Head", "Ti-E Perfect Focus A1R", "Olympus FV10i", "Olympus FV300/FVX", "Olympus FV500", "Olympus FV1000", "Visitech Infinity", "Zeiss LSM410", "Zeiss LSM510", "Zeiss LSM700", "Zeiss LSM710", "Others" }, 0, false);
 		_na = new EzVarDouble("Actual numerical aperture of objective");
 		_mObj = new EzVarInteger("Objective Magnification");
 		_indexImmersion = new EzVarDouble("Refractive index of the lens immersion medium (default oil)");

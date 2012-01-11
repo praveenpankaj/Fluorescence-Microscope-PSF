@@ -1,6 +1,7 @@
 package plugins.praveen.PSF;
 
 import edu.emory.mathcs.jtransforms.fft.DoubleFFT_2D;
+import icy.gui.dialog.MessageDialog;
 import icy.image.IcyBufferedImage;
 import icy.sequence.Sequence;
 import icy.type.DataType;
@@ -54,24 +55,78 @@ public class ConfocalCalculator {
 		setZ(DEFAULT_Z);				
 	}
 	public Sequence compute(){			
-		double sFactor = 0;//Pinhole shape factor
-		double mInt = 1;
-		String choice = _mName;
+		double sFactor = 0.5;//Pinhole shape factor
+		double mInt = 1;		
 		if(_mName == "Biorad MRC 500/600/1024")
 		{
 			sFactor = 0.5;
 			mInt = 53.2;
-
+			_pSize = (_pSize*sFactor)/(_mObj*mInt);
 		}
 		else if(_mName == "Biorad Radiance")
 		{
 			sFactor = 0.5;
 			mInt = 73.2;
+			_pSize = (_pSize*sFactor)/(_mObj*mInt);
 		}
-		else if(_mName == "Leica TCS 4D/SP1/NT")
+		else if(_mName == "TE2000-E C1 Head")
 		{
-			sFactor = 0.56419;
-			mInt = 4.5;
+			sFactor = 0.5;
+			mInt = 1.00;
+			_pSize = (_pSize*sFactor)/(_mObj*mInt);
+		}
+		else if(_mName == "Ti-E Perfect Focus A1R")
+		{
+			sFactor = 0.456;
+			mInt = 1.00;		
+			_pSize = (_pSize*sFactor)/(_mObj*mInt);
+		}
+		else if(_mName == "Olympus FV10i")
+		{
+			sFactor = 0.399;
+			mInt = 3.8;		
+			_pSize = (_pSize*sFactor)/(_mObj*mInt);
+		}
+		else if(_mName == "Olympus FV500")
+		{
+			sFactor = 0.5641896;
+			mInt = 3.8;		
+			_pSize = (_pSize*sFactor)/(_mObj*mInt);
+		}
+		else if(_mName == "Olympus FV1000")
+		{
+			sFactor = 0.5641896;
+			mInt = 3.82;		
+			_pSize = (_pSize*sFactor)/(_mObj*mInt);
+		}
+		else if(_mName == "Visitech Infinity")
+		{
+			sFactor = 0.5;
+			mInt = 1.00;
+			_pSize = (_pSize*sFactor)/(_mObj*mInt);
+		}
+		else if(_mName == "Zeiss LSM510")
+		{
+			sFactor = 0.5;
+			mInt = 3.33;
+			_pSize = (_pSize*sFactor)/(_mObj*mInt);
+		}
+		else if(_mName == "Zeiss LSM700")
+		{
+			sFactor = 0.564;
+			mInt = 1.53;
+			_pSize = (_pSize*sFactor)/(_mObj*mInt);
+		}
+		else if(_mName == "Zeiss LSM710")
+		{
+			sFactor = 0.564;
+			mInt = 1.9048;
+			_pSize = (_pSize*sFactor)/(_mObj*mInt);
+		}
+		else if(_mName == "Others")
+		{
+			MessageDialog.showDialog("PSF for your microscope is currently unavailable. Contact us to include it in the next release.", MessageDialog.ERROR_MESSAGE);
+			return null;
 		}
 
 		final DoubleFFT_2D fft = new DoubleFFT_2D(_w, _h);
