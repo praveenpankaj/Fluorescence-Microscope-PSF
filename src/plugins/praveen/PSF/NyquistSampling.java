@@ -3,6 +3,7 @@ package plugins.praveen.PSF;
 import icy.gui.dialog.MessageDialog;
 import plugins.adufour.ezplug.EzPlug;
 import plugins.adufour.ezplug.EzVarDouble;
+import plugins.adufour.ezplug.EzVarFloat;
 import plugins.adufour.ezplug.EzVarInteger;
 import plugins.adufour.ezplug.EzVarText;
 
@@ -13,8 +14,8 @@ public class NyquistSampling extends EzPlug {
 	EzVarInteger _lem = new EzVarInteger("Emission peak wavelength, in nm", 405, 750, 1);		
 	EzVarDouble _indexImmersion = new EzVarDouble("Refractive index of the medium between lens and cover slip", 1.00, 4.00, 0.01);
 	EzVarDouble _objNA = new EzVarDouble("Effective numerical aperture of the objective lens", 0.1, 4.00, 0.01);
-	EzVarDouble _xySampling = new EzVarDouble("Radial Nyquist Sampling is (in nm)");
-	EzVarDouble _zSampling = new EzVarDouble("Axial Nyquist Sampling is (in nm)");
+	EzVarFloat _xySampling = new EzVarFloat("Radial Nyquist Sampling is (in nm)");
+	EzVarFloat _zSampling = new EzVarFloat("Axial Nyquist Sampling is (in nm)");
 
 
 
@@ -62,8 +63,8 @@ public class NyquistSampling extends EzPlug {
 
 			}
 
-			_xySampling.setValue((double)xySampling);
-			_zSampling.setValue((double)zSampling);
+			_xySampling.setValue(xySampling);
+			_zSampling.setValue(zSampling);			
 
 			//MessageDialog.INFORMATION_MESSAGE();
 			//new AnnounceFrame("Radial Nyquist Sampling for the given " + _mname.getValue() + " Microscope is " + xySampling + " nm");

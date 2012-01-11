@@ -5,7 +5,7 @@ import icy.image.IcyBufferedImage;
 import icy.sequence.Sequence;
 import icy.type.DataType;
 
-public class PSFCalculator {
+public class ConfocalCalculator {
 	private int _w;
 	private int _h;
 	private int _z;
@@ -16,35 +16,57 @@ public class PSFCalculator {
 	private double _xySampling;
 	private double _zSampling;
 	private double _depth;
-	
-	public final static int DEFAULT_W = 128;
-	public final static int DEFAULT_H = 128;
-	public final static int DEFAULT_Z = 128;
-	public final static double DEFAULT_INDEXIMMERSION = 1.515;
+	private double _pSize;
+	private String _mName;
+	private int _mObj;
+	private int _lex;
+
+	public final static String DEFAULT_MNAME = "Biorad MRC 500/600/1024";
 	public final static double DEFAULT_NA = 1.4;
+	public final static int DEFAULT_MOBJ = 63;
+	public final static double DEFAULT_INDEXIMMERSION = 1.518;
+	public final static double DEFAULT_PSIZE = 0;
+	public final static int DEFAULT_LEX = 488;
 	public final static int DEFAULT_LEM = 520;
 	public final static double DEFAULT_INDEXSP = 1.33;
-	public final static double DEFAULT_XYSAMPLING = 92.00;
-	public final static double DEFAULT_ZSAMPLING = 277.00;
+	public final static double DEFAULT_XYSAMPLING = 50.34;
+	public final static double DEFAULT_ZSAMPLING = 151.37;
 	public final static double DEFAULT_DEPTH = 0.0;
-	PSFCalculator() {
-		setW(DEFAULT_W);
-		setH(DEFAULT_H);
-		setZ(DEFAULT_Z);
-		setXYSAMPLING(DEFAULT_XYSAMPLING);
-		setZSAMPLING(DEFAULT_ZSAMPLING);
-		setIndexImmersion(DEFAULT_INDEXIMMERSION);
+	public final static int DEFAULT_W = 128;
+	public final static int DEFAULT_H = 128;
+	public final static int DEFAULT_Z = 128;	
+
+
+	ConfocalCalculator() {
+		setMNAME(DEFAULT_MNAME);
 		setNA(DEFAULT_NA);
+		setMOBJ(DEFAULT_MOBJ);
+		setIndexImmersion(DEFAULT_INDEXIMMERSION);
+		setPSIZE(DEFAULT_PSIZE);
+		setLEX(DEFAULT_LEX);
 		setLEM(DEFAULT_LEM);
 		setIndexSp(DEFAULT_INDEXSP);
-		
-		setDEPTH(DEFAULT_DEPTH);		
+		setXYSAMPLING(DEFAULT_XYSAMPLING);
+		setZSAMPLING(DEFAULT_ZSAMPLING);
+		setDEPTH(DEFAULT_DEPTH);
+		setW(DEFAULT_W);
+		setH(DEFAULT_H);
+		setZ(DEFAULT_Z);				
 	}
 	public Sequence compute(){
-		
+		double sFactor = 0;//Pinhole shape factor
+		double mInt = 1;
+		switch (_mName)
+		{
+		case "Biorad MRC 500/600/1024": sFactor = 0.5;
+		mInt = 53.2;
+		break;
+		case "Biorad Radiance": sFactor = 0.5;
+		mInt = 73.2;
+		break;
+		}
+
 		final DoubleFFT_2D fft = new DoubleFFT_2D(_w, _h);
-		//IcyBufferedImage psf3d = new IcyBufferedImage(_w, _h, 1, DataType.DOUBLE);
-		
 		int hc = _h/2;
 		int wc = _w/2;
 		int zc = _z/2;
@@ -55,17 +77,16 @@ public class PSFCalculator {
 		double kObj = (2*Math.PI)/lambdaObj;//Wave vector in the immersion medium
 		double kSp = (2*Math.PI)/lambdaSp;//Wave vector in the medium
 		double kMax = (2*Math.PI*_na)/(_lem*kSampling);//Maximum aperture radius
-		//double saCoeff = _depth * (_indexSpRefr-_indexImmersion);
-		
+
 		// Define the zero defocus pupil function
 		IcyBufferedImage pupil = new IcyBufferedImage(_w, _h, 2, DataType.FLOAT); // channel 1 is real and channel 2 is imaginary
 		float[] pupilRealBuffer = pupil.getDataXYAsFloat(0);//Real
 		float[] pupilImagBuffer = pupil.getDataXYAsFloat(1);//imaginary
-		
+
 		IcyBufferedImage dpupil = new IcyBufferedImage(_w, _h, 2, DataType.DOUBLE); // channel 1 is real and channel 2 is imaginary
 		double[] dpupilRealBuffer = dpupil.getDataXYAsDouble(0); //Real
 		double[] dpupilImagBuffer = dpupil.getDataXYAsDouble(1); //imaginary
-		
+
 		//Calculate the cosine and the sine components
 		IcyBufferedImage ctheta = new IcyBufferedImage(_w, _h, 1, DataType.DOUBLE);
 		double[] cthetaBuffer = ctheta.getDataXYAsDouble(0);
@@ -75,25 +96,25 @@ public class PSFCalculator {
 		double[] sthetaBuffer = stheta.getDataXYAsDouble(0);
 		IcyBufferedImage sthetaSp = new IcyBufferedImage(_w, _h, 1, DataType.DOUBLE);
 		double[] sthetaSpBuffer = sthetaSp.getDataXYAsDouble(0);
-		
+
 		Sequence psf3d = new Sequence();
 		psf3d.setName("WideField PSF");
-        
+
 		for (int k =  0 ; k < _z; k++)
-    	{// Define the defocus pupils			
-			
+		{// Define the defocus pupils			
+
 			double defocus = k-zc;
 			defocus = defocus*_zSampling;	
-			
+
 			for(int x = 0; x < _w; x++)
 			{
 				for(int y = 0; y < _h; y++)
 				{   
 					double kxy = Math.sqrt( Math.pow(x-wc, 2) + Math.pow(y-hc, 2) );
-        		
+
 					pupilRealBuffer[pupil.getOffset(x, y)] = ((kxy < kMax) ? 1 : 0); //Pupil bandwidth constraints
 					pupilImagBuffer[pupil.getOffset(x, y)] = 0; //Zero phase 
-        		
+
 					sthetaBuffer[x + y * _h] = Math.sin( kxy * kSampling / kObj );
 					sthetaBuffer[x + y * _h] = (sthetaBuffer[x + y * _h]< 0) ? 0: sthetaBuffer[x + y * _h];
 					sthetaSpBuffer[x + y * _h] = Math.sin( kxy * kSampling / kSp );
@@ -102,11 +123,11 @@ public class PSFCalculator {
 					cthetaSpBuffer[x + y * _h] = Double.MIN_VALUE + Math.sqrt(1 - Math.pow(sthetaSpBuffer[x + y * _h], 2));
 					dpupilRealBuffer[x + y * _h] = pupilRealBuffer[pupil.getOffset(x, y)] * Math.cos((defocus * k0 * cthetaBuffer[x + y * _h]) + (k0 * _depth * (_indexSpRefr * cthetaSpBuffer[x + y * _h]-_indexImmersion * cthetaBuffer[x + y * _h])));
 					dpupilImagBuffer[x + y * _h] = pupilRealBuffer[pupil.getOffset(x, y)] * Math.sin((defocus * k0 * cthetaBuffer[x + y * _h]) + (k0 * _depth * (_indexSpRefr * cthetaSpBuffer[x + y * _h]-_indexImmersion * cthetaBuffer[x + y * _h])));
-        		}
+				}
 			}
 			double[] psf2d = dpupil.getDataCopyCXYAsDouble();
 			fft.complexInverse(psf2d, false);
-			
+
 			IcyBufferedImage timg = new IcyBufferedImage(_w, _h, 1, DataType.DOUBLE);
 			timg.beginUpdate();
 			try{
@@ -123,7 +144,7 @@ public class PSFCalculator {
 						timg.setDataAsDouble(x, y, 0, Math.sqrt(Math.pow(psf2d[(((wc-x) + (y-hc) * _h)*2)+0], 2)+Math.pow(psf2d[(((wc-x) + (y-hc) * _h)*2)+1], 2)));
 						//timg.setDataAsDouble(x, y, 1, psf2d[(((wc-x) + (_h+hc-y) * _h)*2)+1]);
 					}
-					
+
 				}
 				for(int x = (wc+1); x < _w; x++)
 				{
@@ -140,13 +161,13 @@ public class PSFCalculator {
 				}
 
 			}finally {
-			timg.endUpdate();
+				timg.endUpdate();
 			}
-			
-            psf3d.addImage(timg);
-    	}
-		
-	return psf3d;
+
+			psf3d.addImage(timg);
+		}
+
+		return psf3d;
 
 	}
 	public int getW() {
@@ -179,7 +200,7 @@ public class PSFCalculator {
 	public double getDEPTH() {
 		return _depth;
 	}
-	
+
 	public void setW(int src) {
 		_w = src;
 	}
@@ -210,4 +231,16 @@ public class PSFCalculator {
 	public void setDEPTH(double src) {
 		_depth = src;
 	}
+	public void setPSIZE(double src) {
+		_pSize = src;
+	}
+	public void setMNAME(String src) {
+		_mName = src;
+	}
+	public void setMOBJ(int src) {
+		_mObj = src;
+	}
+	public void setLEX(int src) {
+		_lex = src;
+	}	
 }
