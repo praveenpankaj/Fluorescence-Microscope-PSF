@@ -125,7 +125,7 @@ public class ConfocalCalculator {
 		}
 		else if(_mName == "Others")
 		{
-			MessageDialog.showDialog("PSF for your microscope is currently unavailable. Contact us to include it in the next release.", MessageDialog.ERROR_MESSAGE);
+			MessageDialog.showDialog("Support for your microscope is currently unavailable. Contact us to include this.", MessageDialog.ERROR_MESSAGE);
 			return null;
 		}
 
