@@ -56,7 +56,7 @@ public class ConfocalCalculator {
 	}
 	public Sequence compute(){			
 		double sFactor = 0.5;//Pinhole shape factor
-		double mInt = 1;		
+		double mInt = 53.2;//Internal magnification		
 		if(_mName == "Biorad MRC 500/600/1024")
 		{
 			sFactor = 0.5;
@@ -161,7 +161,7 @@ public class ConfocalCalculator {
 		double[] sthetaSpBuffer = sthetaSp.getDataXYAsDouble(0);
 
 		Sequence psf3d = new Sequence();
-		psf3d.setName("WideField PSF");
+		psf3d.setName("Confocal PSF");
 
 		for (int k =  0 ; k < _z; k++)
 		{// Define the defocus pupils			
