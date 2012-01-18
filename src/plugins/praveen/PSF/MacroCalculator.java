@@ -53,7 +53,6 @@ public class MacroCalculator {
 		
 		final DoubleFFT_2D fft = new DoubleFFT_2D(_w, _h);
 		//IcyBufferedImage psf3d = new IcyBufferedImage(_w, _h, 1, DataType.DOUBLE);
-		
 		int hc = _h/2;
 		int wc = _w/2;
 		int zc = _z/2;
@@ -94,13 +93,13 @@ public class MacroCalculator {
 				{   
 					double kObjxy = Math.sqrt( Math.pow(x-wc, 2) + Math.pow(y-hc, 2) );
         		    double kZoomxy = Math.sqrt( Math.pow(x-wc+_xofactor, 2) + Math.pow(y-hc+_yofactor, 2) );
-					pupilRealBuffer[pupil.getOffset(x, y)] = ((kObjxy < kObjMax) ? 1 : 0); //Pupil bandwidth constraints
-					pupilRealBuffer[pupil.getOffset(x, y)] = pupilRealBuffer[pupil.getOffset(x, y)] * ((kZoomxy < kZoomMax) ? 1 : 0); //Pupil bandwidth constraints
+					pupilRealBuffer[pupil.getOffset(x, y)] = ((kObjxy <= kObjMax) ? 1 : 0); //Pupil bandwidth constraints
+					pupilRealBuffer[pupil.getOffset(x, y)] = pupilRealBuffer[pupil.getOffset(x, y)] * ((kZoomxy <= kZoomMax) ? 1 : 0); //Pupil bandwidth constraints
 					pupilImagBuffer[pupil.getOffset(x, y)] = 0; //Zero phase 
         		
 					sthetaBuffer[x + y * _h] = Math.sin( kObjxy * kSampling / kObj );
-					sthetaBuffer[x + y * _h] = (sthetaBuffer[x + y * _h]< 0) ? 0: sthetaBuffer[x + y * _h];
-					sthetaBuffer[x + y * _h] = (sthetaBuffer[x + y * _h] > 1) ? 1: sthetaBuffer[x + y * _h];
+					sthetaBuffer[x + y * _h] = (sthetaBuffer[x + y * _h]<= 0) ? 0: sthetaBuffer[x + y * _h];
+					sthetaBuffer[x + y * _h] = (sthetaBuffer[x + y * _h] >= 1) ? 1: sthetaBuffer[x + y * _h];
 					cthetaBuffer[x + y * _h] = Double.MIN_VALUE + Math.sqrt(1 - Math.pow(sthetaBuffer[x + y * _h], 2));
 					dpupilRealBuffer[x + y * _h] = pupilRealBuffer[pupil.getOffset(x, y)] * Math.cos((defocus * k0 * cthetaBuffer[x + y * _h]));
 					dpupilImagBuffer[x + y * _h] = pupilRealBuffer[pupil.getOffset(x, y)] * Math.sin((defocus * k0 * cthetaBuffer[x + y * _h]));
