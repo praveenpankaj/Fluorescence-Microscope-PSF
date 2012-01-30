@@ -1,6 +1,7 @@
 package plugins.praveen.PSF;
 
 import edu.emory.mathcs.jtransforms.fft.DoubleFFT_2D;
+import javax.media.jai.operator.ConvolveDescriptor;
 import icy.gui.dialog.MessageDialog;
 import icy.image.IcyBufferedImage;
 import icy.sequence.Sequence;
@@ -162,6 +163,7 @@ public class ConfocalCalculator {
 
 		Sequence psf3d = new Sequence();
 		psf3d.setName("Confocal PSF");
+		Sequence.phole = new Sequence();
 
 		for (int k =  0 ; k < _z; k++)
 		{// Define the defocus pupils			
