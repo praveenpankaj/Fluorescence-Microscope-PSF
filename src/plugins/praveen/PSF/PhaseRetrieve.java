@@ -1,10 +1,7 @@
 package plugins.praveen.PSF;
 
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
-import java.awt.image.WritableRaster;
-
 import icy.gui.dialog.MessageDialog;
+import icy.gui.frame.progress.AnnounceFrame;
 import icy.image.IcyBufferedImage;
 import icy.sequence.Sequence;
 import icy.type.DataType;
@@ -18,10 +15,12 @@ import plugins.adufour.filtering.Convolution1D;
 import plugins.adufour.filtering.Kernels1D;
 import plugins.adufour.projection.Projection;
 import icy.math.ArrayMath;
-
+import icy.math.MathUtil;
 import javax.media.jai.BorderExtender;
-import javax.media.jai.PlanarImage;
+import javax.media.jai.JAI;
+import javax.media.jai.RenderedOp;
 import javax.media.jai.operator.BorderDescriptor;
+import javax.swing.SwingConstants;
 
 
 public class PhaseRetrieve extends EzPlug {
@@ -67,6 +66,7 @@ public class PhaseRetrieve extends EzPlug {
 		// TODO Auto-generated method stub
 		Sequence pupil = new Sequence();
 		Sequence resizedSeq = new Sequence();
+		Sequence selectedSeq = new Sequence();
 
 		int _w = sequence.getSizeX();
 		int _h = sequence.getSizeY();
@@ -74,48 +74,92 @@ public class PhaseRetrieve extends EzPlug {
 		double[][] seqArray = new double[_z][_w*_h];
 		double[][] bgRemovedArray = new double[_z][_w*_h];
 
+		//1. Calculate the parameter necessary for the algorithm
+		double _lambdaObj = _lem/_indexImmersion; //Wavelength inside the lens
+		double _kObj = 2*Math.PI/_lambdaObj; //Wavenumber inside the lens
+		double _kMax = 2*Math.PI*_objNA/_lambdaObj; //Maximum permissible frequency
+		double _xyMax = 3*0.061*_lambdaObj/_objNA;//Maximum spread
 
-		// 1. Remove Mean Background FLuorescence Intensity
+		// 1. Resize the input data to make it a square image
+		int leftPad = 0;
+		int rightPad = 0;
+		int topPad = 0;
+		int botPad = 0;
+		if(_w>_h)
+		{ 
+			int dh = _w-_h;
+			_h = _w;
+			if(Math.IEEEremainder(dh, 2)==0)
+			{
+				topPad = dh/2;
+				botPad = dh/2;
+
+			}
+			else
+			{
+				topPad = (int) Math.ceil(dh/2);
+				botPad = (int) Math.floor(dh/2);
+			}
+		}
+		else
+		{
+			int dw = _h -_w;
+			_w = _h;
+			if(Math.IEEEremainder(dw, 2)==0)
+			{
+				leftPad = dw/2;
+				rightPad = dw/2;
+
+			}
+			else
+			{
+				leftPad = (int) Math.ceil(dw/2);
+				rightPad = (int) Math.floor(dw/2);
+			}
+		}
+		for(int iz=0;iz<_z;iz++)
+		{
+			//origImage = sequence.getImage(0, iz, 0).getScaledCopy(_w, _w, false, SwingConstants.CENTER, SwingConstants.CENTER);
+			final RenderedOp renderedOp = BorderDescriptor.create(sequence.getImage(0, iz, 0), leftPad, rightPad, topPad, botPad, BorderExtender.createInstance(BorderExtender.BORDER_REFLECT), null);
+			IcyBufferedImage resizedImage = IcyBufferedImage.createFrom(renderedOp.getAsBufferedImage());
+			resizedSeq.addImage(resizedImage);
+		}
+		double kSampling = 2*Math.PI/(_w*_xySampling);
+
+		//2. Find central plane
+		//Sequence zMaxProj = new Sequence();
+		int cPlane = 0;
+		double[] zMaxIntensity = new double[_z];
+		double maxIntensity=0;
+		Sequence zMaxProj = Projection.zProjection(sequence, Projection.ProjectionType.MAX, true);
+
+
+		// 3. Remove Mean Background FLuorescence Intensity
 		for(int iz = 0;iz<_z;iz++)
 		{		
-			seqArray[iz] = Array1DUtil.arrayToDoubleArray(sequence.getDataXY(0, iz, 0), false);	
+			IcyBufferedImage zMaxProjImage = zMaxProj.getImage(0, iz, 0);
+			zMaxIntensity[iz] = zMaxProjImage.getComponentUserMaxValue(0);
+			if(maxIntensity < zMaxIntensity[iz])
+			{
+				cPlane = iz;
+				maxIntensity = zMaxIntensity[iz];
+			}
+			seqArray[iz] = Array1DUtil.arrayToDoubleArray(resizedSeq.getDataXY(0, iz, 0), false);	
 			for(int ix = 0;ix<_w;ix++)
 			{
 				for(int iy = 0;iy<_h;iy++)
 				{
 					bgRemovedArray[iz][ix + iy*_h] = seqArray[iz][ix + iy*_h]-_bgd;
-					bgRemovedArray[iz][ix + iy*_h] = ((bgRemovedArray[iz][ix + iy*_h] < 0) ? 0 : bgRemovedArray[iz][ix + iy*_h]);
+					bgRemovedArray[iz][ix + iy*_h] = ((bgRemovedArray[iz][ix + iy*_h] < 0) ? 0 : bgRemovedArray[iz][ix + iy*_h]);					
 				}
 			}			
 		}
-
-		// 2. Resize the input data to make it a square image
-		if(_w>_h)
-		{			
-			for(int iz=0;iz<_z;iz++)
-			{
-				IcyBufferedImage resizedImage = new IcyBufferedImage(_w, _w, 1, DataType.DOUBLE);
-				Graphics2D graphics2D = resizedImage.createGraphics();
-				graphics2D.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-				graphics2D.drawImage(resizedImage, 0, 0, _w, _w, null);
-				IcyBufferedImage origImage = new IcyBufferedImage(_w, _h, 1, DataType.DOUBLE);
-				resizedImage.beginUpdate();			
-				resizedImage = origImage.get
-				resizedSeq.addImage(resizedImage);
-			}
-			double[][] pupilMagArray = new double[1][_w*_w];
-			double[][] pupilPhArray = new double[1][_w*_w];
-		}
-		else
-		{
-			double[][] pupilMagArray = new double[1][_h*_h];
-			double[][] pupilPhArray = new double[1][_h*_h];
-		}
-		//3. Find central plane
-		Sequence zMaxProj = new Sequence();
-		zMaxProj = Projection.zProjection(sequence, Projection.ProjectionType.MAX, true);
-
-		//3. Initialize Pupil Function
+		//4. Display the focal plane information
+		new AnnounceFrame("Detected focal plane at " + cPlane+1 + "th slice.");
+		int[] selectedPlanes = new int[]{cPlane+1-15, cPlane+1-2, cPlane+1+2, cPlane+1+15};
+		float[] defocus = new float[4];
+		ArrayMath.multiply(ArrayMath.subtract(selectedPlanes, cPlane), _zSampling, defocus);	
+		//5. Initialize Pupil Function
 		for(int ix = 0;ix<_w;ix++)
 		{
 			for(int iy = 0;iy<_h;iy++)
