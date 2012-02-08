@@ -1,11 +1,15 @@
 package plugins.praveen.PSF;
 
+import java.awt.RenderingHints;
+import java.awt.image.ConvolveOp;
+
 import icy.gui.dialog.MessageDialog;
 import icy.gui.frame.progress.AnnounceFrame;
 import icy.image.IcyBufferedImage;
 import icy.sequence.Sequence;
 import icy.type.DataType;
 import icy.type.collection.array.Array1DUtil;
+import icy.type.collection.array.Array2DUtil;
 import plugins.adufour.ezplug.EzPlug;
 import plugins.adufour.ezplug.EzVarDouble;
 import plugins.adufour.ezplug.EzVarFloat;
@@ -13,14 +17,19 @@ import plugins.adufour.ezplug.EzVarInteger;
 import plugins.adufour.ezplug.EzVarSequence;
 import plugins.adufour.filtering.Convolution1D;
 import plugins.adufour.filtering.Kernels1D;
+import plugins.adufour.filtering.Kernels2D;
 import plugins.adufour.projection.Projection;
 import icy.math.ArrayMath;
 import icy.math.MathUtil;
 import javax.media.jai.BorderExtender;
 import javax.media.jai.JAI;
+import javax.media.jai.KernelJAI;
 import javax.media.jai.RenderedOp;
 import javax.media.jai.operator.BorderDescriptor;
+import javax.media.jai.operator.ConvolveDescriptor;
 import javax.swing.SwingConstants;
+
+import edu.emory.mathcs.jtransforms.fft.DoubleFFT_2D;
 
 
 public class PhaseRetrieve extends EzPlug {
@@ -65,9 +74,15 @@ public class PhaseRetrieve extends EzPlug {
 	public Sequence estimatepupil(Sequence sequence, float _xySampling, float _zSampling, float _objNA, float _indexImmersion, int _lem, int _bgd, float _sigma, float _alpha, int _nIter) {
 		// TODO Auto-generated method stub
 		Sequence pupil = new Sequence();
+		pupil.setName("Estimated Pupil");
+		pupil.setChannelName(0, "Amplitude");
+		pupil.setChannelName(1, "Phase");
+		Sequence psf3d = new Sequence();
+		psf3d.setName("Estimated PSF");
 		Sequence resizedSeq = new Sequence();
 		Sequence selectedSeq = new Sequence();
-
+		final int NSECTIONS = 4;
+		
 		int _w = sequence.getSizeX();
 		int _h = sequence.getSizeY();
 		int _z = sequence.getSizeZ();
@@ -79,6 +94,7 @@ public class PhaseRetrieve extends EzPlug {
 		double _kObj = 2*Math.PI/_lambdaObj; //Wavenumber inside the lens
 		double _kMax = 2*Math.PI*_objNA/_lambdaObj; //Maximum permissible frequency
 		double _xyMax = 3*0.061*_lambdaObj/_objNA;//Maximum spread
+		double _k0 = (2*Math.PI)/_lem;//Wave vector
 
 		// 1. Resize the input data to make it a square image
 		int leftPad = 0;
@@ -124,7 +140,10 @@ public class PhaseRetrieve extends EzPlug {
 			IcyBufferedImage resizedImage = IcyBufferedImage.createFrom(renderedOp.getAsBufferedImage());
 			resizedSeq.addImage(resizedImage);
 		}
+		final DoubleFFT_2D fftOp = new DoubleFFT_2D(_w, _h);
 		double kSampling = 2*Math.PI/(_w*_xySampling);
+		int hc = _h/2;
+		int wc = _w/2;
 
 		//2. Find central plane
 		//Sequence zMaxProj = new Sequence();
@@ -157,21 +176,110 @@ public class PhaseRetrieve extends EzPlug {
 		//4. Display the focal plane information
 		new AnnounceFrame("Detected focal plane at " + cPlane+1 + "th slice.");
 		int[] selectedPlanes = new int[]{cPlane+1-15, cPlane+1-2, cPlane+1+2, cPlane+1+15};
-		float[] defocus = new float[4];
+		double[] defocus = new double[NSECTIONS];
 		ArrayMath.multiply(ArrayMath.subtract(selectedPlanes, cPlane), _zSampling, defocus);	
+
 		//5. Initialize Pupil Function
-		for(int ix = 0;ix<_w;ix++)
+		// Define the zero defocus pupil function
+		IcyBufferedImage pupilImage = new IcyBufferedImage(_w, _h, 2, DataType.FLOAT); // channel 1 is real and channel 2 is imaginary
+		double[] pupilReBuffer = pupilImage.getDataXYAsDouble(0);//Real
+		double[] pupilImBuffer = pupilImage.getDataXYAsDouble(1);//imaginary
+
+		IcyBufferedImage defocuspupil = new IcyBufferedImage(_w, _h, 2, DataType.DOUBLE); // channel 1 is real and channel 2 is imaginary
+		double[] dpupilRealBuffer = defocuspupil.getDataXYAsDouble(0); //Real
+		double[] dpupilImagBuffer = defocuspupil.getDataXYAsDouble(1); //imaginary
+
+		//6. Calculate the cosine and the sine components
+		IcyBufferedImage ctheta = new IcyBufferedImage(_w, _h, 1, DataType.DOUBLE);
+		double[] cthetaBuffer = ctheta.getDataXYAsDouble(0);
+		IcyBufferedImage stheta = new IcyBufferedImage(_w, _h, 1, DataType.DOUBLE);
+		double[] sthetaBuffer = stheta.getDataXYAsDouble(0);
+
+		//7. Initialize pupil amplitude to one within bandwidth and phase to zero
+		for(int x = 0; x < _w; x++)
 		{
-			for(int iy = 0;iy<_h;iy++)
+			for(int y = 0; y < _h; y++)
+			{   
+				double kxy = Math.sqrt( Math.pow(x-wc, 2) + Math.pow(y-hc, 2) );
+
+				pupilReBuffer[pupilImage.getOffset(x, y)] = ((kxy < _kMax) ? 1 : 0); //Pupil bandwidth constraints
+				pupilImBuffer[pupilImage.getOffset(x, y)] = 0; //Zero phase 
+				sthetaBuffer[x + y * _h] = Math.sin( kxy * kSampling / _kObj );
+				sthetaBuffer[x + y * _h] = (sthetaBuffer[x + y * _h]< 0) ? 0: sthetaBuffer[x + y * _h];
+				cthetaBuffer[x + y * _h] = Double.MIN_VALUE + Math.sqrt(1 - Math.pow(sthetaBuffer[x + y * _h], 2));				
+			}
+		}
+
+		//8. Filter the pupil for antialiasing
+		double[] gaussianKernel = Kernels1D.CUSTOM_GAUSSIAN.createGaussianKernel1D(_sigma).getData();
+		double[][] tempPupil = new double[][]{ pupilReBuffer };
+		Convolution1D.convolve(tempPupil, _w, _h, gaussianKernel, gaussianKernel, null);	
+		System.arraycopy(tempPupil[0], 0, pupilReBuffer, 0, _w*_h);
+
+		//KernelJAI gKernelJAI = new KernelJAI(_w, _h, Array2DUtil.doubleArrayToFloatArray(Kernels2D.CUSTOM.createCustomKernel2D(gaussianKernel, _w, _h, true)));
+		//final int renderedop = ConvolveDescriptor.create(pupilImage, kernel, null);		
+		
+		//9. Iteration
+		for(int n = 0; n<_nIter; n++)
+		{
+			IcyBufferedImage avgPupil = new IcyBufferedImage(_w, _h, 2, DataType.DOUBLE);
+			for(int i=0;i<NSECTIONS;i++)
 			{
-				pupilMagArray[0][ix + iy*_h] = 0;
-				pupilPhArray[0][ix + iy*_h] = 0;
+				// Calculated Defocused pupil
+				for(int x = 0; x < _w; x++)
+				{
+					for(int y = 0; y < _h; y++)
+					{ 
+						dpupilRealBuffer[x + y * _h] = pupilReBuffer[pupilImage.getOffset(x, y)] * Math.cos((defocus[i] * _k0 * cthetaBuffer[x + y * _h]));
+						dpupilImagBuffer[x + y * _h] = pupilReBuffer[pupilImage.getOffset(x, y)] * Math.sin((defocus[i] * _k0 * cthetaBuffer[x + y * _h]));
+						
+					}
+				}
+				double[] psf2d = defocuspupil.getDataCopyCXYAsDouble();
+				fftOp.complexInverse(psf2d, false);
+				//Swap quadrants of PSF and update
+				IcyBufferedImage psfCentered = new IcyBufferedImage(_w, _h, 1, DataType.DOUBLE);
+				IcyBufferedImage observedPSF = new IcyBufferedImage(_w, _h, 1, DataType.DOUBLE);
+				psfCentered.beginUpdate();
+				try{
+					for(int x = 0; x < (wc+1); x++)
+					{
+						for(int y = 0; y < (hc+1); y++)
+						{
+							psfCentered.setDataAsDouble(x, y, 0, Math.sqrt(Math.pow(psf2d[(((wc-x) + (hc-y) * _h)*2)+0],2)+Math.pow(psf2d[(((wc-x) + (hc-y) * _h)*2)+1], 2)));							
+							psfCentered.setDataAsDouble(x, y, 0, psfCentered.getOffset(x, y)-ArrayMath.multiply(observedPSF.getDataXYAsDouble(0), _alpha));
+
+						}
+						for(int y = hc+1; y < _h; y++)
+						{
+							psfCentered.setDataAsDouble(x, y, 0, Math.sqrt(Math.pow(psf2d[(((wc-x) + (y-hc) * _h)*2)+0], 2)+Math.pow(psf2d[(((wc-x) + (y-hc) * _h)*2)+1], 2)));
+						}
+						
+					}
+					for(int x = (wc+1); x < _w; x++)
+					{
+						for(int y = 0; y < (hc+1); y++)
+						{
+							psfCentered.setDataAsDouble(x, y, 0, Math.sqrt(Math.pow(psf2d[(((x-wc) + (hc-y) * _h)*2)+0], 2)+Math.pow(psf2d[(((x-wc) + (hc-y) * _h)*2)+1], 2)));
+						}
+						for(int y = hc+1; y < _h; y++)
+						{
+							psfCentered.setDataAsDouble(x, y, 0, Math.sqrt(Math.pow(psf2d[(((x-wc) + (y-hc) * _h)*2)+0], 2)+Math.pow(psf2d[(((x-wc) + (y-hc) * _h)*2)+1],2)));
+						}
+					}
+
+				}finally {
+				psfCentered.endUpdate();
+				}
+				
+				// Update the PSF				
 			}
 		}
 
 
 
-		double[] gaussianKernel = Kernels1D.CUSTOM_GAUSSIAN.createGaussianKernel1D(_sigma).getData();
+
+
 
 		return null;
 	}
