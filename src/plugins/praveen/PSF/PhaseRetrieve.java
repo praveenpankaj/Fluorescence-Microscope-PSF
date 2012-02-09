@@ -1,16 +1,16 @@
 package plugins.praveen.PSF;
 
-import java.awt.RenderingHints;
-import java.awt.image.ConvolveOp;
+//import java.awt.RenderingHints;
+//import java.awt.image.ConvolveOp;
 
-import icy.gui.dialog.MessageDialog;
+//import icy.gui.dialog.MessageDialog;
 import icy.gui.frame.progress.AnnounceFrame;
 import icy.image.IcyBufferedImage;
 import icy.sequence.Sequence;
 import icy.type.DataType;
 import icy.type.collection.array.Array1DUtil;
 import plugins.adufour.ezplug.EzPlug;
-import plugins.adufour.ezplug.EzVarDouble;
+//import plugins.adufour.ezplug.EzVarDouble;
 import plugins.adufour.ezplug.EzVarFloat;
 import plugins.adufour.ezplug.EzVarInteger;
 import plugins.adufour.ezplug.EzVarSequence;
@@ -19,8 +19,8 @@ import plugins.adufour.filtering.Kernels1D;
 import plugins.adufour.projection.Projection;
 import icy.math.ArrayMath;
 import javax.media.jai.BorderExtender;
-import javax.media.jai.JAI;
-import javax.media.jai.KernelJAI;
+//import javax.media.jai.JAI;
+//import javax.media.jai.KernelJAI;
 import javax.media.jai.RenderedOp;
 import javax.media.jai.operator.BorderDescriptor;
 
@@ -325,6 +325,15 @@ public class PhaseRetrieve extends EzPlug {
 						pupilReBuffer[x + y * _h] = avgPupilReBuffer[x + y * _h];
 						pupilImBuffer[x + y * _h] = avgPupilImBuffer[x + y * _h];
 					}
+				}
+				if(Math.IEEEremainder(n, 5) == 0)
+				{
+					tempPupil = new double[][]{ pupilReBuffer };
+					Convolution1D.convolve(tempPupil, _w, _h, gaussianKernel, gaussianKernel, null);	
+					System.arraycopy(tempPupil[0], 0, pupilReBuffer, 0, _w*_h);
+					tempPupil = new double[][]{ pupilImBuffer };
+					Convolution1D.convolve(tempPupil, _w, _h, gaussianKernel, gaussianKernel, null);	
+					System.arraycopy(tempPupil[0], 0, pupilReBuffer, 0, _w*_h);
 				}
 			}
 
