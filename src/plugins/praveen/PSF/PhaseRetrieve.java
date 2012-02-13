@@ -262,8 +262,8 @@ public class PhaseRetrieve extends EzPlug {
 						for(int y = hc+1; y < _h; y++)
 						{
 							double r = Math.sqrt( Math.pow(x-wc, 2) + Math.pow(y-hc, 2) );
-							psfReBuffer[x + y * _w] = psf2d[(((wc-x) + (y-hc) * _w)*2) + 0];	
-							psfImBuffer[x + y * _w] = psf2d[(((wc-x) + (y-hc) * _w)*2) + 1];
+							psfReBuffer[x + y * _w] = psf2d[(((wc-x) + (_h+ hc-y) * _w)*2) + 0];	
+							psfImBuffer[x + y * _w] = psf2d[(((wc-x) + (_h+ hc-y) * _w)*2) + 1];
 							double psf = Double.MIN_VALUE + Math.pow(psfReBuffer[x + y * _w], 2) + Math.pow(psfImBuffer[x + y * _w], 2);
 							// Update 
 							psfReBuffer[x + y * _w] = ((r < _rMax) ? 1 : 0) * psfReBuffer[x + y * _w]  * (1 - _alpha - _alpha * bgRemovedArray[cPlane + selectedPlanes[iz]][x + y * _w]/psf ); 
@@ -277,8 +277,8 @@ public class PhaseRetrieve extends EzPlug {
 						for(int y = 0; y < (hc+1); y++)
 						{
 							double r = Math.sqrt( Math.pow(x-wc, 2) + Math.pow(y-hc, 2) );
-							psfReBuffer[x + y * _w] = psf2d[(((x-wc) + (hc-y) * _w)*2) + 0];	
-							psfImBuffer[x + y * _w] = psf2d[(((x-wc) + (hc-y) * _w)*2) + 1];
+							psfReBuffer[x + y * _w] = psf2d[(((_w+wc-x) + (hc-y) * _w)*2) + 0];	
+							psfImBuffer[x + y * _w] = psf2d[(((_w+wc-x) + (hc-y) * _w)*2) + 1];
 							double psf = Double.MIN_VALUE + Math.pow(psfReBuffer[x + y * _w], 2) + Math.pow(psfImBuffer[x + y * _w], 2);
 							// Update 
 							psfReBuffer[x + y * _w] = ((r < _rMax) ? 1 : 0) * psfReBuffer[x + y * _w]  * (1 - _alpha - _alpha * bgRemovedArray[cPlane + selectedPlanes[iz]][x + y * _w]/psf ); 
@@ -287,8 +287,8 @@ public class PhaseRetrieve extends EzPlug {
 						for(int y = hc+1; y < _h; y++)
 						{
 							double r = Math.sqrt( Math.pow(x-wc, 2) + Math.pow(y-hc, 2) );
-							psfReBuffer[x + y * _w] = psf2d[(((x-wc) + (y-hc) * _w)*2) + 0];	
-							psfImBuffer[x + y * _w] = psf2d[(((x-wc) + (y-hc) * _w)*2) + 1];
+							psfReBuffer[x + y * _w] = psf2d[(((_w+wc-x) + (_h+ hc-y) * _w)*2) + 0];	
+							psfImBuffer[x + y * _w] = psf2d[(((_w+wc-x) + (_h+ hc-y) * _w)*2) + 1];
 							double psf = Double.MIN_VALUE + Math.pow(psfReBuffer[x + y * _w], 2) + Math.pow(psfImBuffer[x + y * _w], 2);
 							// Update 
 							psfReBuffer[x + y * _w] = ((r < _rMax) ? 1 : 0) * psfReBuffer[x + y * _w]  * (1 - _alpha - _alpha * bgRemovedArray[cPlane + selectedPlanes[iz]][x + y * _w]/psf ); 
