@@ -88,12 +88,12 @@ public class PhaseRetrieve extends EzPlug {
 		int botPad = 0;
 		if(_w>_h)
 		{ 
-			int dh = _w-_h;
+			double dh = _w-_h;
 			_h = _w;
 			if(Math.IEEEremainder(dh, 2)==0)
 			{
-				topPad = dh/2;
-				botPad = dh/2;
+				topPad = (int)dh/2;
+				botPad = (int)dh/2;
 
 			}
 			else
@@ -104,12 +104,12 @@ public class PhaseRetrieve extends EzPlug {
 		}
 		else
 		{
-			int dw = _h -_w;
+			double dw = _h -_w;
 			_w = _h;
 			if(Math.IEEEremainder(dw, 2)==0)
 			{
-				leftPad = dw/2;
-				rightPad = dw/2;
+				leftPad = (int)dw/2;
+				rightPad = (int)dw/2;
 
 			}
 			else
@@ -193,8 +193,8 @@ public class PhaseRetrieve extends EzPlug {
 			{   
 				double kxy = Math.sqrt( Math.pow(x-wc, 2) + Math.pow(y-hc, 2) );
 
-				pupilReBuffer[pupilImage.getOffset(x, y)] = ((kxy < _kMax) ? 1 : 0); //Pupil bandwidth constraints
-				pupilImBuffer[pupilImage.getOffset(x, y)] = 0; //Zero phase 
+				pupilReBuffer[x + y * _w] = ((kxy < _kMax) ? 1 : 0); //Pupil bandwidth constraints
+				pupilImBuffer[x + y * _w] = 0; //Zero phase 
 				sthetaBuffer[x + y * _w] = Math.sin( kxy * kSampling / _kObj );
 				sthetaBuffer[x + y * _w] = (sthetaBuffer[x + y * _w]< 0) ? 0: sthetaBuffer[x + y * _w];
 				cthetaBuffer[x + y * _w] = Double.MIN_VALUE + Math.sqrt(1 - Math.pow(sthetaBuffer[x + y * _w], 2));				
@@ -202,6 +202,7 @@ public class PhaseRetrieve extends EzPlug {
 		}
 		Sequence tpupil = new Sequence();
 		tpupil.addImage(pupilImage);
+		tpupil.setName("Intial pupil");
 		addSequence(tpupil);
 
 		//8. Filter the pupil for antialiasing
@@ -303,9 +304,10 @@ public class PhaseRetrieve extends EzPlug {
 				/*Sequence tseq = new Sequence();
 				tseq.addImage(psfCentered);
 				addSequence(tseq);*/
+				psf2d = psfCentered.getDataCopyCXYAsDouble();
 
 				// 9c. Calculate the pupil function
-				double[] pupilArray = psfCentered.getDataCopyCXYAsDouble();
+				double[] pupilArray = psf2d;
 				fftOp.complexInverse(pupilArray, false);
 
 				//9d. Correct for defocus and average the pupils
@@ -314,7 +316,7 @@ public class PhaseRetrieve extends EzPlug {
 					for(int y = 0; y < _h; y++)
 					{ 
 						dpupilReBuffer[x + y * _w] = pupilArray[((x + y * _w) * 2) + 0] * Math.cos((defocus[iz] * _k0 * cthetaBuffer[x + y * _w]));
-						dpupilImBuffer[x + y * _w] = pupilArray[((x + y * _w) * 2) + 1] * Math.sin((defocus[iz] * _k0 * cthetaBuffer[x + y * _w]));
+						dpupilImBuffer[x + y * _w] = pupilArray[((x + y * _w) * 2) + 1] * Math.sin(-(defocus[iz] * _k0 * cthetaBuffer[x + y * _w]));
 
 						avgPupilReBuffer[x + y * _w] = avgPupilReBuffer[x + y * _w] + dpupilReBuffer[x + y * _w];
 						avgPupilImBuffer[x + y * _w] = avgPupilImBuffer[x + y * _w] + dpupilImBuffer[x + y * _w];
@@ -332,14 +334,14 @@ public class PhaseRetrieve extends EzPlug {
 						pupilImBuffer[x + y * _w] = avgPupilImBuffer[x + y * _w];
 					}
 				}
-				if(Math.IEEEremainder(n, 5) == 0)
+				if(Math.IEEEremainder(n+1, 5) == 0)
 				{
 					tempPupil = new double[][]{ pupilReBuffer };
 					Convolution1D.convolve(tempPupil, _w, _h, gaussianKernel, gaussianKernel, null);	
 					System.arraycopy(tempPupil[0], 0, pupilReBuffer, 0, _w*_h);
 					tempPupil = new double[][]{ pupilImBuffer };
 					Convolution1D.convolve(tempPupil, _w, _h, gaussianKernel, gaussianKernel, null);	
-					System.arraycopy(tempPupil[0], 0, pupilReBuffer, 0, _w*_h);
+					System.arraycopy(tempPupil[0], 0, pupilImBuffer, 0, _w*_h);
 				}
 			}
 
