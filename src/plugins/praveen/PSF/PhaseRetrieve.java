@@ -26,12 +26,12 @@ public class PhaseRetrieve extends EzPlug {
 	EzVarSequence _input = new EzVarSequence("Choose the 3D fluorescence bead image");
 	EzVarDouble _xySampling = new EzVarDouble("Image pixel spacing, in nm", 92.00, 10.00, 50000.00, 0.1);
 	EzVarDouble _zSampling = new EzVarDouble("Slice spacing (z), in nm", 277.00, 10.00, 50000.00, 0.1);
-	EzVarDouble _objNA = new EzVarDouble("Effective numerical aperture of the objective lens", 1.4, 0.1, 4.00, 0.01);
+	EzVarDouble _objNA = new EzVarDouble("Effective numerical aperture of the objective lens", 1.4, 0.001, 4.00, 0.01);
 	EzVarDouble _indexImmersion = new EzVarDouble("Refractive index of the lens immersion medium", 1.518, 1.00, 4.00, 0.01);
 	EzVarInteger _lem = new EzVarInteger("Emission peak wavelength, in nm", 520, 405, 750, 1);
 	EzVarInteger _bgd = new EzVarInteger("Mean background fluorescence intensity", 0, 0, 100000, 1);
-	EzVarDouble _sigma = new EzVarDouble("Gaussian filter parameter", 0.5, 0.1, 1.00, 0.01);
-	EzVarDouble _alpha = new EzVarDouble("Step size for the iterative algorithm", 0.6, 0.5, 1.00, 0.01); 
+	EzVarDouble _sigma = new EzVarDouble("Gaussian filter parameter", 0.5, 0.1, 5.00, 0.01);
+	EzVarDouble _alpha = new EzVarDouble("Step size for the iterative algorithm", 0.6, 0.5, 0.99, 0.01); 
 	EzVarInteger _nIter = new EzVarInteger("Number of iterations", 30, 3, 10000, 1);
 
 
@@ -72,6 +72,7 @@ public class PhaseRetrieve extends EzPlug {
 		psf3d.setName("Estimated PSF");
 		Sequence resizedSeq = new Sequence();
 		final int NSECTIONS = 4;
+		final int NRINGS = 3;
 
 		int _w = sequence.getSizeX();
 		int _h = sequence.getSizeY();
@@ -80,7 +81,7 @@ public class PhaseRetrieve extends EzPlug {
 		//1. Calculate the parameter necessary for the algorithm
 		double _lambdaObj = _lem/_indexImmersion; //Wavelength inside the lens
 		double _kObj = (2 * Math.PI)/_lambdaObj; //Wavenumber inside the lens
-		double _rMax = (3 * 0.061 * _lambdaObj)/(_objNA * _xySampling);//Maximum spread
+		double _rMax = (NRINGS * 0.061 * _lambdaObj)/(_objNA * _xySampling);//Maximum spread
 		double _k0 = (2*Math.PI)/_lem;//Wave vector
 
 		// 1. Resize the input data to make it a square image
@@ -131,8 +132,8 @@ public class PhaseRetrieve extends EzPlug {
 		final DoubleFFT_2D fftOp = new DoubleFFT_2D(_w, _h);
 		double kSampling = 2*Math.PI/(_w*_xySampling);
 		double _kMax = (2 * Math.PI * _objNA)/(_lambdaObj*kSampling); //Maximum permissible frequency
-		int hc = _h/2;
-		int wc = _w/2;
+		int hc = (int) Math.ceil(_h/2);
+		int wc = (int) Math.ceil(_w/2);
 		double[][] seqArray = new double[_z][_w*_h];
 		double[][] bgRemovedArray = new double[_z][_w*_h];
 
@@ -176,7 +177,7 @@ public class PhaseRetrieve extends EzPlug {
 
 		//5. Initialize Pupil Function
 		// Define the zero defocus pupil function
-		IcyBufferedImage pupilImage = new IcyBufferedImage(_w, _h, 2, DataType.DOUBLE); // channel 1 is real and channel 2 is imaginary
+		IcyBufferedImage pupilImage = new IcyBufferedImage(_w, _h, 2, DataType.DOUBLE); // channel 1 is magnitude and channel 2 is phase
 		double[] pupilMagBuffer = pupilImage.getDataXYAsDouble(0);//Real
 		double[] pupilPhBuffer = pupilImage.getDataXYAsDouble(1);//imaginary
 
@@ -273,8 +274,8 @@ public class PhaseRetrieve extends EzPlug {
 						psfImBuffer[x + y * _w] = psf2d[(((wc-x) + (_h+ hc-y) * _w)*2) + 1];
 						double psf = Double.MIN_VALUE + Math.pow(psfReBuffer[x + y * _w], 2) + Math.pow(psfImBuffer[x + y * _w], 2);
 						// Update 
-						psfReBuffer[x + y * _w] = ((r < _rMax) ? 1 : 0) * psfReBuffer[x + y * _w]  * (1 - _alpha - _alpha * bgRemovedArray[cPlane + selectedPlanes[iz]][x + y * _w]/psf ); 
-						psfImBuffer[x + y * _w] = ((r < _rMax) ? 1 : 0) * psfImBuffer[x + y * _w]  * (1 + _alpha - _alpha * bgRemovedArray[cPlane + selectedPlanes[iz]][x + y * _w]/psf );
+						psfReBuffer[x + y * _w] = ((r < _rMax) ? 1 : 0) * psfReBuffer[x + y * _w]  * (1 - _alpha - (_alpha * bgRemovedArray[cPlane + selectedPlanes[iz]][x + y * _w]/psf) ); 
+						psfImBuffer[x + y * _w] = ((r < _rMax) ? 1 : 0) * psfImBuffer[x + y * _w]  * (1 + _alpha - (_alpha * bgRemovedArray[cPlane + selectedPlanes[iz]][x + y * _w]/psf) );
 
 					}
 
@@ -288,8 +289,8 @@ public class PhaseRetrieve extends EzPlug {
 						psfImBuffer[x + y * _w] = psf2d[(((_w+wc-x) + (hc-y) * _w)*2) + 1];
 						double psf = Double.MIN_VALUE + Math.pow(psfReBuffer[x + y * _w], 2) + Math.pow(psfImBuffer[x + y * _w], 2);
 						// Update 
-						psfReBuffer[x + y * _w] = ((r < _rMax) ? 1 : 0) * psfReBuffer[x + y * _w]  * (1 - _alpha - _alpha * bgRemovedArray[cPlane + selectedPlanes[iz]][x + y * _w]/psf ); 
-						psfImBuffer[x + y * _w] = ((r < _rMax) ? 1 : 0) * psfImBuffer[x + y * _w]  * (1 + _alpha - _alpha * bgRemovedArray[cPlane + selectedPlanes[iz]][x + y * _w]/psf );
+						psfReBuffer[x + y * _w] = ((r < _rMax) ? 1 : 0) * psfReBuffer[x + y * _w]  * (1 - _alpha - (_alpha * bgRemovedArray[cPlane + selectedPlanes[iz]][x + y * _w]/psf) ); 
+						psfImBuffer[x + y * _w] = ((r < _rMax) ? 1 : 0) * psfImBuffer[x + y * _w]  * (1 + _alpha - (_alpha * bgRemovedArray[cPlane + selectedPlanes[iz]][x + y * _w]/psf) );
 					}
 					for(int y = hc+1; y < _h; y++)
 					{
@@ -298,8 +299,8 @@ public class PhaseRetrieve extends EzPlug {
 						psfImBuffer[x + y * _w] = psf2d[(((_w+wc-x) + (_h+ hc-y) * _w)*2) + 1];
 						double psf = Double.MIN_VALUE + Math.pow(psfReBuffer[x + y * _w], 2) + Math.pow(psfImBuffer[x + y * _w], 2);
 						// Update 
-						psfReBuffer[x + y * _w] = ((r < _rMax) ? 1 : 0) * psfReBuffer[x + y * _w]  * (1 - _alpha - _alpha * bgRemovedArray[cPlane + selectedPlanes[iz]][x + y * _w]/psf ); 
-						psfImBuffer[x + y * _w] = ((r < _rMax) ? 1 : 0) * psfImBuffer[x + y * _w]  * (1 + _alpha - _alpha * bgRemovedArray[cPlane + selectedPlanes[iz]][x + y * _w]/psf );
+						psfReBuffer[x + y * _w] = ((r < _rMax) ? 1 : 0) * psfReBuffer[x + y * _w]  * (1 - _alpha - (_alpha * bgRemovedArray[cPlane + selectedPlanes[iz]][x + y * _w]/psf) ); 
+						psfImBuffer[x + y * _w] = ((r < _rMax) ? 1 : 0) * psfImBuffer[x + y * _w]  * (1 + _alpha - (_alpha * bgRemovedArray[cPlane + selectedPlanes[iz]][x + y * _w]/psf) );
 
 					}
 				}
