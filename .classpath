@@ -4,5 +4,7 @@
 	<classpathentry kind="var" path="ICY_HOME/icy.jar"/>
 	<classpathentry kind="var" path="ICY_HOME/plugins/adufour/ezplug/ezplug.jar"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="lib" path="/Icy-App/plugins/adufour/filtering/FilterToolbox.jar"/>
+	<classpathentry kind="lib" path="/Icy-App/plugins/adufour/projection/Projection.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
