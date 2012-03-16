@@ -73,6 +73,7 @@ public class PhaseRetrieve extends EzPlug {
 		Sequence resizedSeq = new Sequence();
 		final int NSECTIONS = 4;
 		final int NRINGS = 3;
+		final int NITER = 5;
 
 		int _w = sequence.getSizeX();
 		int _h = sequence.getSizeY();
@@ -81,10 +82,10 @@ public class PhaseRetrieve extends EzPlug {
 		//1. Calculate the parameter necessary for the algorithm
 		double _lambdaObj = _lem/_indexImmersion; //Wavelength inside the lens
 		double _kObj = (2 * Math.PI)/_lambdaObj; //Wavenumber inside the lens
-		double _rMax = (NRINGS * 0.061 * _lambdaObj)/(_objNA * _xySampling);//Maximum spread
+		double _rMax = (NRINGS * 0.61 * _lambdaObj)/(_objNA * _xySampling);//Maximum spread
 		double _k0 = (2*Math.PI)/_lem;//Wave vector
 
-		// 1. Resize the input data to make it a square image
+		// 2. Resize the input data to make it a square image
 		int leftPad = 0;
 		int rightPad = 0;
 		int topPad = 0;
@@ -137,23 +138,23 @@ public class PhaseRetrieve extends EzPlug {
 		double[][] seqArray = new double[_z][_w*_h];
 		double[][] bgRemovedArray = new double[_z][_w*_h];
 
-		//2. Find central plane
+		//3. Find central plane
 		//Sequence zMaxProj = new Sequence();
 		int cPlane = 0;
 		double[] zMaxIntensity = new double[_z];
-		double maxIntensity=0;
-		//Sequence zMaxProj = Projection.zProjection(, Projection.ProjectionType.MAX, true);
+		double maxAxialIntensity = Double.MIN_VALUE;
 
-		// 3. Remove Mean Background FLuorescence Intensity
+		// 4. Remove Mean Background Fluorescence Intensity
+		
 		for(int iz = 0;iz<_z;iz++)
 		{		
 			IcyBufferedImage zImage = sequence.getImage(0, iz, 0);			
 			zImage.updateComponentsBounds(true, true);
 			zMaxIntensity[iz] = zImage.getComponentUserMaxValue(0);
-			if(maxIntensity < zMaxIntensity[iz])
+			if(maxAxialIntensity < zMaxIntensity[iz])
 			{
 				cPlane = iz;
-				maxIntensity = zMaxIntensity[iz];
+				maxAxialIntensity = zMaxIntensity[iz];
 			}
 			seqArray[iz] = Array1DUtil.arrayToDoubleArray(resizedSeq.getDataXY(0, iz, 0), false);	
 			for(int ix = 0;ix<_w;ix++)
@@ -161,21 +162,32 @@ public class PhaseRetrieve extends EzPlug {
 				for(int iy = 0;iy<_h;iy++)
 				{
 					bgRemovedArray[iz][ix + iy*_w] = seqArray[iz][ix + iy*_w]-_bgd;
-					bgRemovedArray[iz][ix + iy*_w] = ((bgRemovedArray[iz][ix + iy*_w] < 0) ? 0 : bgRemovedArray[iz][ix + iy*_w]);					
+					bgRemovedArray[iz][ix + iy*_w] = ((bgRemovedArray[iz][ix + iy*_w] < 0) ? Double.MIN_VALUE : bgRemovedArray[iz][ix + iy*_w]);
 				}
 			}			
 		}
 		cPlane = cPlane+1;
-		//ArrayMath.divide(bgRemovedArray, ArrayMath.max(Array1DUtil.arrayToDoubleArray(bgRemovedArray, true)));
+		//5. Normalize the observed data
+		for(int iz = 0;iz<_z;iz++)
+		{
+			for(int ix = 0;ix<_w;ix++)
+			{
+				for(int iy = 0;iy<_h;iy++)
+				{
+					bgRemovedArray[iz][ix + iy*_w] = bgRemovedArray[iz][ix + iy*_w]/Math.abs(maxAxialIntensity-_bgd);
+				}
+			}
+		}
+		
 
-		//4. Display the focal plane information
+		//6. Display the focal plane information
 		new AnnounceFrame("Detected focal plane at the " + cPlane + "th slice.");
 		int[] selectedPlanes = new int[]{cPlane-15, cPlane-2, cPlane+2, cPlane+15};
 		double[] defocus = new double[NSECTIONS];
 		ArrayMath.subtract(selectedPlanes, cPlane, selectedPlanes);
 		ArrayMath.multiply(Array1DUtil.arrayToDoubleArray(selectedPlanes, true), (double)_zSampling, defocus);	
 
-		//5. Initialize Pupil Function
+		//7. Initialize Pupil Function
 		// Define the zero defocus pupil function
 		IcyBufferedImage pupilImage = new IcyBufferedImage(_w, _h, 2, DataType.DOUBLE); // channel 1 is magnitude and channel 2 is phase
 		double[] pupilMagBuffer = pupilImage.getDataXYAsDouble(0);//Real
@@ -185,13 +197,13 @@ public class PhaseRetrieve extends EzPlug {
 		double[] dpupilReBuffer = dpupilImage.getDataXYAsDouble(0); //Real
 		double[] dpupilImBuffer = dpupilImage.getDataXYAsDouble(1); //imaginary
 
-		//6. Calculate the cosine and the sine components
+		//8. Initialize the cosine and the sine components
 		IcyBufferedImage ctheta = new IcyBufferedImage(_w, _h, 1, DataType.DOUBLE);
 		double[] cthetaBuffer = ctheta.getDataXYAsDouble(0);
 		IcyBufferedImage stheta = new IcyBufferedImage(_w, _h, 1, DataType.DOUBLE);
 		double[] sthetaBuffer = stheta.getDataXYAsDouble(0);
 
-		//7. Initialize pupil amplitude to one within bandwidth and phase to zero
+		//9. Initialize pupil amplitude to one within bandwidth and phase to zero
 		for(int x = 0; x < _w; x++)
 		{
 			for(int y = 0; y < _h; y++)
@@ -200,16 +212,15 @@ public class PhaseRetrieve extends EzPlug {
 
 				pupilMagBuffer[x + y * _w] = ((kxy < _kMax) ? 1 : 0); //Pupil bandwidth constraints
 				pupilPhBuffer[x + y * _w] = 0; //Zero phase 
-				sthetaBuffer[x + y * _w] = Math.sin( kxy * kSampling / _kObj );
-				sthetaBuffer[x + y * _w] = (sthetaBuffer[x + y * _w]< 0) ? 0: sthetaBuffer[x + y * _w];
+				sthetaBuffer[x + y * _w] = kxy * kSampling / _kObj;
+				sthetaBuffer[x + y * _w] = (sthetaBuffer[x + y * _w]> 1) ? 1: sthetaBuffer[x + y * _w];
 				cthetaBuffer[x + y * _w] = Double.MIN_VALUE + Math.sqrt(1 - Math.pow(sthetaBuffer[x + y * _w], 2));				
 			}
 		}
-		//pupilImage.dataChanged();
 		stheta.dataChanged();
 		ctheta.dataChanged();		
 
-		//8. Filter the pupil for antialiasing
+		//10. Filter the pupil for antialiasing
 		double[] gaussianKernel = Kernels1D.CUSTOM_GAUSSIAN.createGaussianKernel1D(_sigma).getData();
 		double[][] tempPupil = new double[][]{ pupilMagBuffer };
 		Convolution1D.convolve(tempPupil, _w, _h, gaussianKernel, gaussianKernel, null);	
@@ -225,7 +236,7 @@ public class PhaseRetrieve extends EzPlug {
 		//KernelJAI gKernelJAI = new KernelJAI(_w, _h, Array2DUtil.doubleArrayToFloatArray(Kernels2D.CUSTOM.createCustomKernel2D(gaussianKernel, _w, _h, true)));
 		//final int renderedop = ConvolveDescriptor.create(pupilImage, kernel, null);		
 
-		//9. Iteration
+		//11. Iteration
 		for(int n = 0; n<_nIter; n++)
 		{
 			IcyBufferedImage avgPupil = new IcyBufferedImage(_w, _h, 2, DataType.DOUBLE);
@@ -234,7 +245,7 @@ public class PhaseRetrieve extends EzPlug {
 
 			for(int iz=0;iz<NSECTIONS;iz++)
 			{
-				//9a. Calculated Defocused pupil
+				//11a. Calculated Defocused pupil
 				for(int x = 0; x < _w; x++)
 				{
 					for(int y = 0; y < _h; y++)
@@ -249,7 +260,7 @@ public class PhaseRetrieve extends EzPlug {
 				fftOp.complexForward(psf2d);
 
 
-				//9b. Swap quadrants of PSF and update
+				//11b. Swap quadrants of PSF and update
 				IcyBufferedImage psfCentered = new IcyBufferedImage(_w, _h, 2, DataType.DOUBLE);
 				double[] psfReBuffer = psfCentered.getDataXYAsDouble(0);//Real
 				double[] psfImBuffer = psfCentered.getDataXYAsDouble(1);//imaginary
@@ -263,8 +274,8 @@ public class PhaseRetrieve extends EzPlug {
 						psfImBuffer[x + y * _w] = psf2d[(((wc-x) + (hc-y) * _w)*2) + 1];
 						double psf = Double.MIN_VALUE + Math.pow(psfReBuffer[x + y * _w], 2) + Math.pow(psfImBuffer[x + y * _w], 2);
 						//Update 
-						psfReBuffer[x + y * _w] = ((r < _rMax) ? 1 : 0) * psfReBuffer[x + y * _w]  * (1 - _alpha - (_alpha * bgRemovedArray[cPlane + selectedPlanes[iz]][x + y * _w]/psf) ); 
-						psfImBuffer[x + y * _w] = ((r < _rMax) ? 1 : 0) * psfImBuffer[x + y * _w]  * (1 + _alpha - (_alpha * bgRemovedArray[cPlane + selectedPlanes[iz]][x + y * _w]/psf) );
+						psfReBuffer[x + y * _w] = ((r < _rMax) ? 1 : 0) * psfReBuffer[x + y * _w]  * (1 - _alpha + (_alpha * bgRemovedArray[cPlane + selectedPlanes[iz]][x + y * _w]/psf) ); 
+						psfImBuffer[x + y * _w] = ((r < _rMax) ? 1 : 0) * psfImBuffer[x + y * _w]  * (1 - _alpha + (_alpha * bgRemovedArray[cPlane + selectedPlanes[iz]][x + y * _w]/psf) );
 
 					}
 					for(int y = hc+1; y < _h; y++)
@@ -274,8 +285,8 @@ public class PhaseRetrieve extends EzPlug {
 						psfImBuffer[x + y * _w] = psf2d[(((wc-x) + (_h+ hc-y) * _w)*2) + 1];
 						double psf = Double.MIN_VALUE + Math.pow(psfReBuffer[x + y * _w], 2) + Math.pow(psfImBuffer[x + y * _w], 2);
 						// Update 
-						psfReBuffer[x + y * _w] = ((r < _rMax) ? 1 : 0) * psfReBuffer[x + y * _w]  * (1 - _alpha - (_alpha * bgRemovedArray[cPlane + selectedPlanes[iz]][x + y * _w]/psf) ); 
-						psfImBuffer[x + y * _w] = ((r < _rMax) ? 1 : 0) * psfImBuffer[x + y * _w]  * (1 + _alpha - (_alpha * bgRemovedArray[cPlane + selectedPlanes[iz]][x + y * _w]/psf) );
+						psfReBuffer[x + y * _w] = ((r < _rMax) ? 1 : 0) * psfReBuffer[x + y * _w]  * (1 - _alpha + (_alpha * bgRemovedArray[cPlane + selectedPlanes[iz]][x + y * _w]/psf) ); 
+						psfImBuffer[x + y * _w] = ((r < _rMax) ? 1 : 0) * psfImBuffer[x + y * _w]  * (1 - _alpha + (_alpha * bgRemovedArray[cPlane + selectedPlanes[iz]][x + y * _w]/psf) );
 
 					}
 
@@ -289,8 +300,8 @@ public class PhaseRetrieve extends EzPlug {
 						psfImBuffer[x + y * _w] = psf2d[(((_w+wc-x) + (hc-y) * _w)*2) + 1];
 						double psf = Double.MIN_VALUE + Math.pow(psfReBuffer[x + y * _w], 2) + Math.pow(psfImBuffer[x + y * _w], 2);
 						// Update 
-						psfReBuffer[x + y * _w] = ((r < _rMax) ? 1 : 0) * psfReBuffer[x + y * _w]  * (1 - _alpha - (_alpha * bgRemovedArray[cPlane + selectedPlanes[iz]][x + y * _w]/psf) ); 
-						psfImBuffer[x + y * _w] = ((r < _rMax) ? 1 : 0) * psfImBuffer[x + y * _w]  * (1 + _alpha - (_alpha * bgRemovedArray[cPlane + selectedPlanes[iz]][x + y * _w]/psf) );
+						psfReBuffer[x + y * _w] = ((r < _rMax) ? 1 : 0) * psfReBuffer[x + y * _w]  * (1 - _alpha + (_alpha * bgRemovedArray[cPlane + selectedPlanes[iz]][x + y * _w]/psf) ); 
+						psfImBuffer[x + y * _w] = ((r < _rMax) ? 1 : 0) * psfImBuffer[x + y * _w]  * (1 - _alpha + (_alpha * bgRemovedArray[cPlane + selectedPlanes[iz]][x + y * _w]/psf) );
 					}
 					for(int y = hc+1; y < _h; y++)
 					{
@@ -299,21 +310,21 @@ public class PhaseRetrieve extends EzPlug {
 						psfImBuffer[x + y * _w] = psf2d[(((_w+wc-x) + (_h+ hc-y) * _w)*2) + 1];
 						double psf = Double.MIN_VALUE + Math.pow(psfReBuffer[x + y * _w], 2) + Math.pow(psfImBuffer[x + y * _w], 2);
 						// Update 
-						psfReBuffer[x + y * _w] = ((r < _rMax) ? 1 : 0) * psfReBuffer[x + y * _w]  * (1 - _alpha - (_alpha * bgRemovedArray[cPlane + selectedPlanes[iz]][x + y * _w]/psf) ); 
-						psfImBuffer[x + y * _w] = ((r < _rMax) ? 1 : 0) * psfImBuffer[x + y * _w]  * (1 + _alpha - (_alpha * bgRemovedArray[cPlane + selectedPlanes[iz]][x + y * _w]/psf) );
+						psfReBuffer[x + y * _w] = ((r < _rMax) ? 1 : 0) * (psfReBuffer[x + y * _w]  * (1 - _alpha + (_alpha * bgRemovedArray[cPlane + selectedPlanes[iz]][x + y * _w]/psf) )); 
+						psfImBuffer[x + y * _w] = ((r < _rMax) ? 1 : 0) * (psfImBuffer[x + y * _w]  * (1 - _alpha + (_alpha * bgRemovedArray[cPlane + selectedPlanes[iz]][x + y * _w]/psf) ));
 
 					}
 				}
 				psfCentered.dataChanged();
 
-				//9c. Return centered result
+				//11c. Return centered result
 				psf2d = psfCentered.getDataCopyCXYAsDouble();
 
-				// 9c. Calculate the experimentally updated pupil function
+				// 11d. Calculate the experimentally updated pupil function
 				double[] pupilArray = psf2d;
-				fftOp.complexInverse(pupilArray, false);
+				fftOp.complexInverse(pupilArray, true);
 
-				//9d. Correct for defocus and average the pupils
+				//11e. Correct for defocus and average the pupils
 				for(int x = 0; x < _w; x++)
 				{
 					for(int y = 0; y < _h; y++)
@@ -327,12 +338,12 @@ public class PhaseRetrieve extends EzPlug {
 					}
 				}
 				dpupilImage.dataChanged();
-
 			}
 			ArrayMath.divide(avgPupilReBuffer, NSECTIONS);
 			ArrayMath.divide(avgPupilImBuffer, NSECTIONS);			
 			avgPupil.dataChanged();
 			
+			//12. Calculate Magnitude and Phase
 			for(int x = 0; x < _w; x++)
 			{
 				for(int y = 0; y < _h; y++)
@@ -341,7 +352,9 @@ public class PhaseRetrieve extends EzPlug {
 					pupilPhBuffer[x + y * _w] = Math.atan2(avgPupilImBuffer[x + y * _w], avgPupilReBuffer[x + y * _w]);
 				}
 			}
-			if(Math.IEEEremainder(n, 2) == 0)
+			
+			//13. Filter the Magnitude and the Phase
+			if(Math.IEEEremainder(n, NITER) == 0)
 			{
 				tempPupil = new double[][]{ pupilMagBuffer };
 				Convolution1D.convolve(tempPupil, _w, _h, gaussianKernel, gaussianKernel, null);	
@@ -350,6 +363,8 @@ public class PhaseRetrieve extends EzPlug {
 				Convolution1D.convolve(tempPupil, _w, _h, gaussianKernel, gaussianKernel, null);	
 				System.arraycopy(tempPupil[0], 0, pupilPhBuffer, 0, _w*_h);
 			}
+			
+			//14. Bandlimit the pupil
 			for(int x = 0; x < _w; x++)
 			{
 				for(int y = 0; y < _h; y++)
@@ -359,22 +374,13 @@ public class PhaseRetrieve extends EzPlug {
 					pupilPhBuffer[x + y * _w] = ((kxy < _kMax) ? 1 : 0) * pupilPhBuffer[x + y * _w];
 				}
 			}
+			// 15. Normalize the amplitude to 0 and 1
 			MathUtil.normalize(pupilMagBuffer);
 			pupilImage.dataChanged();
 		}
 		pupil.addImage(pupilImage);
 		return pupil;
 	}
-
-
-
-
-
-
-
-
-
-
 	@Override
 	public void clean() {
 		// TODO Auto-generated by Icy4Eclipse
