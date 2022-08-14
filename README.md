@@ -8,7 +8,9 @@ This plugin calculates the Nyquist sampling, in the radial and axial direction f
 2. [Widefield PSF](https://github.com/praveenpankaj/Fluorescence-Microscope-PSF/blob/master/WideFieldPSF.jar)
 This plugin generates the point-spread function (PSF) for a Widefield Fluorescence Microscope using a scalar diffraction-limited model (Stokseth). It can generate PSF with spherical aberration if there is refractive index mismatch between objective immersion and specimen mounting media.
 
-3. [Widefield Macroscope PSF](https://github.com/praveenpankaj/Fluorescence-Microscope-PSF/blob/master/MacroscopePSF.jar)
+3. There is a [Matlab](https://in.mathworks.com/products/matlab.html) version of the above code available on the File Exchange Platform here: [Widefield Fluorescence Microscope Point-spread-function](https://in.mathworks.com/matlabcentral/fileexchange/31945-widefield-fluorescence-microscope-point-spread-function)
+
+4. [Widefield Macroscope PSF](https://github.com/praveenpankaj/Fluorescence-Microscope-PSF/blob/master/MacroscopePSF.jar)
 This plugin generates the point-spread function (PSF) for a Widefield Fluorescence Macroscope. Due to the telescopic system, the PSF is not spatially invariant.
 
 
